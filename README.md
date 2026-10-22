@@ -43,7 +43,7 @@ O D.R.E.S.S. tem como objetivo facilitar o gerenciamento de uma loja de roupas, 
 - Express.js
 - MySQL
 - JWT (JSON Web Token)
-- Bcrypt
+- bcryptjs
 - Dotenv
 
 ## Frontend
@@ -81,7 +81,8 @@ D.R.E.S.S-main
 │   └── requirements.txt
 │
 ├── database
-│   └── D.R.E.S.S.sql
+│   ├── D.R.E.S.S.sql
+│   └── seed.sql
 │
 └── README.md
 ```
@@ -102,30 +103,32 @@ Antes de executar o projeto, instale:
 # Clonando o Projeto
 
 ```bash
-git clone https://github.com/JPACouto/D.R.E.S.S.git
+git clone https://github.com/BastosNZ/dress.git
 ```
 
 Entre na pasta do projeto:
 
 ```bash
-cd D.R.E.S.S/D.R.E.S.S-main
+cd dress/D.R.E.S.S-main
 ```
 
 ---
 
 # Configurando o Banco de Dados
 
-Crie um banco chamado:
+Crie o banco vazio:
 
 ```sql
 CREATE DATABASE dress;
 ```
 
-Depois importe o arquivo:
+As tabelas são criadas automaticamente na primeira execução do backend: o
+`server.js` chama `initDatabase()`, que roda os `CREATE TABLE IF NOT EXISTS`,
+insere os dados iniciais de clientes e produtos e cria o usuário administrador
+padrão.
 
-```
-database/D.R.E.S.S.sql
-```
+Para criar o esquema manualmente, importe `database/D.R.E.S.S.sql` e,
+opcionalmente, `database/seed.sql`.
 
 ---
 
@@ -204,6 +207,22 @@ A interface será aberta automaticamente no navegador.
 
 ---
 
+# Testes
+
+O backend tem testes de unidade dos serviços escritos com Jest. Os repositórios
+são mockados, então a suíte roda sem banco de dados.
+
+Na pasta `backend`:
+
+```bash
+npm test
+```
+
+São 3 suítes e 14 testes, cobrindo as regras de negócio de clientes, produtos e
+vendas.
+
+---
+
 # Autenticação
 
 O sistema utiliza autenticação baseada em **JWT (JSON Web Token)**.
@@ -218,50 +237,52 @@ Authorization: Bearer SEU_TOKEN
 
 # Principais Endpoints
 
-## Autenticação
+Todas as rotas são montadas sobre `http://localhost:3000`.
 
-| Método | Endpoint |
-|---------|----------|
-| POST | /login |
+As rotas marcadas com **token** exigem o cabeçalho
+`Authorization: Bearer SEU_TOKEN`.
 
----
+## Autenticação — `/auth`
 
-## Clientes
+| Método | Endpoint | Autenticação |
+|---|---|---|
+| POST | `/auth/login` | não |
+| POST | `/auth/registrar` | não |
 
-| Método | Endpoint |
-|---------|----------|
-| GET | /clientes |
-| POST | /clientes |
-| PUT | /clientes/:id |
-| DELETE | /clientes/:id |
+## Clientes — `/clientes`
 
----
+| Método | Endpoint | Autenticação |
+|---|---|---|
+| GET | `/clientes` | token |
+| GET | `/clientes/:id` | token |
+| POST | `/clientes` | token |
+| PUT | `/clientes/:id` | token |
+| DELETE | `/clientes/:id` | token |
 
-## Produtos
+## Produtos — `/produtos`
 
-| Método | Endpoint |
-|---------|----------|
-| GET | /produtos |
-| POST | /produtos |
-| PUT | /produtos/:id |
-| DELETE | /produtos/:id |
+| Método | Endpoint | Autenticação |
+|---|---|---|
+| GET | `/produtos` | token |
+| GET | `/produtos/:id` | token |
+| POST | `/produtos` | token |
+| PUT | `/produtos/:id` | token |
+| DELETE | `/produtos/:id` | token + perfil `ADMIN` |
 
----
+## Vendas — `/vendas`
 
-## Vendas
+| Método | Endpoint | Autenticação |
+|---|---|---|
+| GET | `/vendas` | token |
+| GET | `/vendas/:id` | token |
+| POST | `/vendas` | token |
 
-| Método | Endpoint |
-|---------|----------|
-| GET | /vendas |
-| POST | /vendas |
+## Relatórios — `/relatorios`
 
----
-
-## Relatórios
-
-| Método | Endpoint |
-|---------|----------|
-| GET | /relatorios |
+| Método | Endpoint | Autenticação |
+|---|---|---|
+| GET | `/relatorios/periodo` | token |
+| GET | `/relatorios/cliente/:id` | token |
 
 ---
 
