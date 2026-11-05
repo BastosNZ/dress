@@ -1,4 +1,5 @@
 const db = require('../config/database');
+const AppError = require('../utils/AppError');
 
 async function findAll() {
   const [rows] = await db.query('SELECT * FROM vendas ORDER BY data DESC');
@@ -52,10 +53,10 @@ async function create({ id_usuario, id_cliente, itens }) {
       const produto = produtoRows[0];
 
       if (!produto) {
-        throw new Error(`Produto ${item.id_produto} não encontrado`);
+        throw new AppError(404, `Produto ${item.id_produto} não encontrado`);
       }
       if (produto.quantidade_estoque < item.quantidade) {
-        throw new Error(`Estoque insuficiente para o produto "${produto.nome}"`);
+        throw new AppError(400, `Estoque insuficiente para o produto "${produto.nome}"`);
       }
 
       const subtotal = item.quantidade * Number(produto.preco);

@@ -3,6 +3,7 @@ jest.mock('../services/clienteService');
 const vendaRepository = require('../repositories/vendaRepository');
 const clienteService = require('../services/clienteService');
 const vendaService = require('../services/vendaService');
+const AppError = require('../utils/AppError');
 
 describe('vendaService', () => {
   afterEach(() => jest.clearAllMocks());
@@ -30,7 +31,7 @@ describe('vendaService', () => {
 
   test('propaga erro de estoque insuficiente como 400', async () => {
     clienteService.buscarPorId.mockResolvedValue({ id: 1 });
-    vendaRepository.create.mockRejectedValue(new Error('Estoque insuficiente para o produto "Camisa"'));
+    vendaRepository.create.mockRejectedValue(new AppError(400, 'Estoque insuficiente para o produto "Camisa"'));
     await expect(vendaService.registrar({
       id_usuario: 1,
       id_cliente: 1,

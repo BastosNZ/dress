@@ -1,7 +1,9 @@
-const initDatabase = require('./config/initDatabase');
+require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
-require('dotenv').config();
+const initDatabase = require('./config/initDatabase');
+const errorHandler = require('./middleware/errorHandler');
 
 const authRoutes = require('./routes/authRoutes');
 const clienteRoutes = require('./routes/clienteRoutes');
@@ -10,6 +12,7 @@ const vendaRoutes = require('./routes/vendaRoutes');
 const relatorioRoutes = require('./routes/relatorioRoutes');
 
 const app = express();
+app.disable('x-powered-by');
 app.use(cors());
 app.use(express.json());
 
@@ -23,6 +26,9 @@ app.use((req, res) => {
   res.status(404).json({ erro: 'Rota não encontrada' });
 });
 
+// Tem que ficar depois de todas as rotas
+app.use(errorHandler);
+
 const PORT = process.env.PORT || 3000;
 if (require.main === module) {
   initDatabase()
@@ -34,6 +40,5 @@ if (require.main === module) {
       process.exit(1);
     });
 }
-
 
 module.exports = app;

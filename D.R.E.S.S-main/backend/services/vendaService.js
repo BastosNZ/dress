@@ -1,5 +1,6 @@
 const vendaRepository = require('../repositories/vendaRepository');
 const clienteService = require('./clienteService');
+const AppError = require('../utils/AppError');
 
 async function listar() {
   return vendaRepository.findAll();
@@ -7,37 +8,33 @@ async function listar() {
 
 async function buscarPorId(id) {
   const venda = await vendaRepository.findById(id);
-  if (!venda) throw { status: 404, message: 'Venda não encontrada' };
+  if (!venda) throw new AppError(404, 'Venda não encontrada');
   return venda;
 }
 
 async function registrar({ id_usuario, id_cliente, itens }) {
   if (!itens || itens.length === 0) {
-    throw { status: 400, message: 'Não é possível registrar venda sem itens' };
+    throw new AppError(400, 'Não é possível registrar venda sem itens');
   }
   if (!id_cliente) {
-    throw { status: 400, message: 'Cliente é obrigatório' };
+    throw new AppError(400, 'Cliente é obrigatório');
   }
 
   await clienteService.buscarPorId(id_cliente);
 
   for (const item of itens) {
     if (!item.id_produto || !item.quantidade || item.quantidade <= 0) {
-      throw { status: 400, message: 'Item de venda inválido' };
+      throw new AppError(400, 'Item de venda inválido');
     }
   }
 
-  try {
-    return await vendaRepository.create({ id_usuario, id_cliente, itens });
-  } catch (err) {
-    if (err.status) throw err;
-    throw { status: 400, message: err.message };
-  }
+  // Produto inexistente ou sem estoque o próprio repository já avisa com AppError
+  return vendaRepository.create({ id_usuario, id_cliente, itens });
 }
 
 async function relatorioPorPeriodo(inicio, fim) {
   if (!inicio || !fim) {
-    throw { status: 400, message: 'Período inicial e final são obrigatórios' };
+    throw new AppError(400, 'Período inicial e final são obrigatórios');
   }
   return vendaRepository.findByPeriodo(inicio, fim);
 }
