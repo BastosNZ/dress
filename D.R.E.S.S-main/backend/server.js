@@ -2,9 +2,11 @@ require('dotenv').config();
 
 const express = require('express');
 const cors = require('cors');
+const db = require('./config/database');
 const initDatabase = require('./config/initDatabase');
 const errorHandler = require('./middleware/errorHandler');
 
+const healthRoutes = require('./routes/healthRoutes');
 const authRoutes = require('./routes/authRoutes');
 const usuarioRoutes = require('./routes/usuarioRoutes');
 const clienteRoutes = require('./routes/clienteRoutes');
@@ -17,6 +19,7 @@ app.disable('x-powered-by');
 app.use(cors());
 app.use(express.json());
 
+app.use('/health', healthRoutes);
 app.use('/auth', authRoutes);
 app.use('/usuarios', usuarioRoutes);
 app.use('/clientes', clienteRoutes);
@@ -40,7 +43,18 @@ if (require.main === module) {
 
   initDatabase()
     .then(() => {
-      app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
+      const server = app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
+
+      // O "docker stop" manda SIGTERM. Sem isso o Node ignora o sinal e o
+      // Docker espera 10s antes de matar o processo na força.
+      const desligar = (sinal) => {
+        console.log(`${sinal} recebido, desligando...`);
+        server.close(() => {
+          db.end().finally(() => process.exit(0));
+        });
+      };
+      process.on('SIGTERM', desligar);
+      process.on('SIGINT', desligar);
     })
     .catch((error) => {
       console.error('Erro ao inicializar banco:', error.message);
