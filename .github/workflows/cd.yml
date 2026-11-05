@@ -160,11 +160,30 @@ jobs:
       - name: Deploy (com rollback automático)
         run: scripts/deploy.sh producao "${{ needs.versao.outputs.versao }}"
 
-      - name: Criar release no GitHub
+      # A tag pode ser criada pelo terminal (git push origin vX.Y.Z) ou pela
+      # interface do GitHub (Releases > Draft a new release). No segundo caso a
+      # release já existe, então só acrescenta as imagens publicadas nas notas.
+      - name: Criar ou completar a release no GitHub
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IMAGENS: "Imagens publicadas: ghcr.io/${{ needs.versao.outputs.owner }}/dress-backend:${{ needs.versao.outputs.versao }} e ghcr.io/${{ needs.versao.outputs.owner }}/dress-frontend:${{ needs.versao.outputs.versao }}. Deploy em produção aprovado pelo smoke test."
+        run: |
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            notas=$(gh release view "$GITHUB_REF_NAME" --json body --jq .body)
+            gh release edit "$GITHUB_REF_NAME" --notes "$(printf '%s\n\n%s' "$notas" "$IMAGENS")"
+          else
+            gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes --notes "$IMAGENS"
+          fi
+
+      # Se a release foi criada pela interface e o deploy falhou, deixa isso
+      # registrado nela (vira pré-release com o aviso do rollback)
+      - name: Marcar release com falha
+        if: failure()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "$GITHUB_REF_NAME" \
-            --title "$GITHUB_REF_NAME" \
-            --generate-notes \
-            --notes "Imagens: ghcr.io/${{ needs.versao.outputs.owner }}/dress-backend:${{ needs.versao.outputs.versao }} e dress-frontend:${{ needs.versao.outputs.versao }}"
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            notas=$(gh release view "$GITHUB_REF_NAME" --json body --jq .body)
+            aviso="FALHOU no deploy de produção (smoke test). Rollback automático para a versão ${VERSAO_ANTERIOR:-anterior}. Não usar esta versão."
+            gh release edit "$GITHUB_REF_NAME" --prerelease --notes "$(printf '%s\n\n%s' "$aviso" "$notas")"
+          fi

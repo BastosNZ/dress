@@ -140,11 +140,18 @@ Para lançar uma versão:
 # 1. atualizar a versão e o CHANGELOG.md
 cd D.R.E.S.S-main/backend && npm version 1.2.0 --no-git-tag-version && cd -
 # 2. commit (via PR na main)
-# 3. criar a tag a partir da main
+# 3. criar a tag a partir da main, por um destes jeitos:
+#    a) terminal
 git checkout main && git pull
 git tag v1.2.0
 git push origin v1.2.0
+#    b) interface: Releases > Draft a new release > Choose a tag > digite v1.2.0
+#       > "Create new tag on publish" > target: main > Publish release
 ```
+
+Pelos dois caminhos o CD roda igual. Quando a release é criada pela interface,
+o pipeline só completa as notas dela com as imagens publicadas; se o deploy
+falhar, ela vira pré-release com o aviso do rollback.
 
 Cada versão gera estas imagens no GHCR:
 
@@ -187,13 +194,18 @@ scripts/deploy.sh producao 1.1.0
 Roteiro usado para gerar a evidência:
 
 1. **Versão boa no ar:** tag `v1.1.0` → pipeline verde → release `v1.1.0`.
-2. **Versão com defeito:** numa branch, o `/health` foi alterado para sempre
-   responder erro 500, e foi criada a tag `v1.1.1`.
-3. **O pipeline detecta:** o container da 1.1.1 não fica saudável, o deploy
-   falha e o script faz o rollback para a **1.1.0**, que passa no smoke test.
+2. **Versão com defeito:** na branch `simulacao/rollback-v1.1.1` (que não vai
+   para a main), o Dockerfile do backend foi alterado para subir a API na porta
+   **3001**, enquanto o healthcheck e o compose usam a **3000**. É um erro de
+   configuração típico: os testes e o build passam (CI verde), mas a aplicação
+   não funciona no ambiente. Dessa branch foi criada a tag `v1.1.1`.
+3. **O pipeline detecta:** o container da 1.1.1 nunca fica saudável, o
+   `docker compose up --wait` falha e o `scripts/deploy.sh` faz o rollback para
+   a **1.1.0**, que passa no smoke test.
 4. **Resultado:** job de produção vermelho com o log
    `ROLLBACK: voltando [producao] para a versão 1.1.0` e
-   `Rollback concluído`; nenhuma release `v1.1.1` criada.
+   `Rollback concluído`, e a release `v1.1.1` marcada como pré-release com o
+   aviso de falha.
 
 Para repetir na máquina, sem depender do GHCR (`BUILD_LOCAL=1` builda as imagens localmente):
 
@@ -203,12 +215,12 @@ set -a; source .env; set +a
 # versão boa
 BUILD_LOCAL=1 scripts/deploy.sh producao 1.1.0
 
-# estraga o /health de propósito
-sed -i "s/res.json({ status: 'ok'/res.status(500).json({ status: 'quebrado'/" D.R.E.S.S-main/backend/routes/healthRoutes.js
+# porta errada de propósito
+sed -i 's/PORT=3000$/PORT=3001/' D.R.E.S.S-main/backend/Dockerfile
 BUILD_LOCAL=1 scripts/deploy.sh producao 1.1.1     # falha e volta sozinho para a 1.1.0
 
 # desfaz a alteração
-git checkout D.R.E.S.S-main/backend/routes/healthRoutes.js
+git checkout D.R.E.S.S-main/backend/Dockerfile
 ```
 
 ---
