@@ -1,5 +1,7 @@
 # D.R.E.S.S. - Digital Retail Enterprise Sales System
 
+[![CD](https://github.com/BastosNZ/dress/actions/workflows/cd.yml/badge.svg)](https://github.com/BastosNZ/dress/actions/workflows/cd.yml)
+
 Sistema web desenvolvido para gerenciamento de uma loja de roupas, permitindo o controle de clientes, produtos, estoque e vendas através de uma API REST integrada a uma interface gráfica.
 
 Projeto desenvolvido para a disciplina de **Desenvolvimento Web**.
@@ -53,6 +55,12 @@ O D.R.E.S.S. tem como objetivo facilitar o gerenciamento de uma loja de roupas, 
 - Requests
 - Pandas
 
+## DevOps
+
+- Docker e Docker Compose
+- GitHub Actions (CI/CD)
+- GitHub Container Registry (GHCR)
+
 ## Banco de Dados
 
 - MySQL
@@ -88,6 +96,29 @@ D.R.E.S.S-main
 ```
 
 ---
+
+# Rodando com Docker (jeito mais rápido)
+
+Precisa só do Docker instalado.
+
+```bash
+git clone https://github.com/BastosNZ/dress.git
+cd dress
+cp .env.example .env      # troque as senhas
+docker compose up -d --build
+```
+
+- Interface: http://localhost:8501
+- API: http://localhost:3000/health
+- Login: `ADMIN_USERNAME` / `ADMIN_PASSWORD` do seu `.env`
+
+O pipeline de CI/CD, os segredos, o versionamento e o rollback estão explicados
+em [docs/DEVOPS.md](docs/DEVOPS.md). As mudanças de cada versão ficam no
+[CHANGELOG.md](CHANGELOG.md).
+
+---
+
+# Rodando sem Docker
 
 # Pré-requisitos
 
