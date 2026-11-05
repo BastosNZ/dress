@@ -303,6 +303,7 @@ As rotas marcadas com **token** exigem o cabeçalho
 | Método | Endpoint | Autenticação |
 |---|---|---|
 | GET | `/relatorios/periodo` | token |
+| GET | `/relatorios/resumo` | token |
 | GET | `/relatorios/cliente/:id` | token |
 
 ---
@@ -328,8 +329,18 @@ válido. O sistema não deixa desativar o último administrador ativo.
 - O usuário deve estar autenticado para acessar rotas protegidas.
 - Não é permitido registrar vendas sem estoque disponível.
 - O estoque é atualizado automaticamente após uma venda.
-- Os campos obrigatórios são validados antes do processamento.
-- Os dados enviados para a API são verificados antes de serem gravados no banco.
+- A quantidade de cada item precisa ser um número inteiro maior que zero; o
+  mesmo produto repetido na venda é somado numa linha só.
+- O valor total da venda é a soma dos itens gravados.
+- Produto que já foi vendido e cliente com vendas não podem ser excluídos.
+- CPF é validado pelos dígitos verificadores e salvo só com os números (pode
+  ser enviado com ou sem máscara).
+- Preço não pode ser negativo; estoque e estoque mínimo são inteiros ≥ 0.
+- Relatórios recebem datas no formato `AAAA-MM-DD` e incluem os dois dias do
+  período (`inicio=2026-11-05&fim=2026-11-05` traz as vendas do dia todo).
+- `GET /relatorios/resumo` devolve número de vendas, faturamento e ticket médio
+  do período.
+- Erros sempre voltam em JSON no formato `{ "erro": "mensagem" }`.
 
 ---
 
