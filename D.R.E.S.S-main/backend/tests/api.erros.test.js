@@ -3,12 +3,14 @@
 jest.mock('../repositories/clienteRepository');
 jest.mock('../repositories/produtoRepository');
 jest.mock('../repositories/vendaRepository');
+jest.mock('../repositories/usuarioRepository');
 
 const request = require('supertest');
 const app = require('../server');
 const clienteRepository = require('../repositories/clienteRepository');
 const produtoRepository = require('../repositories/produtoRepository');
 const vendaRepository = require('../repositories/vendaRepository');
+const usuarioRepository = require('../repositories/usuarioRepository');
 const AppError = require('../utils/AppError');
 const { tokenDe, admin } = require('./helpers');
 
@@ -20,6 +22,8 @@ describe('tratamento de erros da API', () => {
   beforeEach(() => {
     // o errorHandler loga erros inesperados, aqui não precisa poluir a saída
     consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+    // o middleware de auth confere o usuário no banco a cada requisição
+    usuarioRepository.findById.mockResolvedValue(admin);
   });
 
   afterEach(() => {
