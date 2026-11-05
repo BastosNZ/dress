@@ -1,9 +1,11 @@
+import os
 import streamlit as st
 import requests
 import pandas as pd
 from datetime import date
 
-API_URL = "http://localhost:3000"
+# No Docker o endereço vem da variável de ambiente (ex.: http://backend:3000)
+API_URL = os.getenv("API_URL", "http://localhost:3000").rstrip("/")
 
 st.set_page_config(
     page_title="D.R.E.S.S | Painel Administrativo",
