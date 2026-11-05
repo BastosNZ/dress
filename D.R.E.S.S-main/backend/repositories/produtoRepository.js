@@ -33,4 +33,9 @@ async function remove(id) {
   await db.query('DELETE FROM produtos WHERE id = ?', [id]);
 }
 
-module.exports = { findAll, findById, create, update, remove };
+async function hasVendas(id) {
+  const [rows] = await db.query('SELECT COUNT(*) AS total FROM itens_venda WHERE id_produto = ?', [id]);
+  return rows[0].total > 0;
+}
+
+module.exports = { findAll, findById, create, update, remove, hasVendas };

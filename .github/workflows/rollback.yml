@@ -1,0 +1,52 @@
+# Rollback manual: Actions > Rollback > Run workflow
+# Escolhe o ambiente e a versão (ex.: 1.0.0) que já existe no GHCR.
+name: Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      ambiente:
+        description: Ambiente
+        type: choice
+        options: [producao, homologacao]
+        required: true
+      versao:
+        description: "Versão pra voltar (ex.: 1.0.0 ou sha-1a2b3c4)"
+        type: string
+        required: true
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  rollback:
+    name: Rollback de ${{ inputs.ambiente }} para ${{ inputs.versao }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.ambiente }}
+    env:
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      DB_ROOT_PASSWORD: ${{ secrets.DB_ROOT_PASSWORD }}
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+      VERSAO: ${{ inputs.versao }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Definir registry
+        run: echo "REGISTRY=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
+
+      - name: Login no GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Conferir se a versão existe no registry
+        run: |
+          docker manifest inspect "$REGISTRY/dress-backend:$VERSAO" > /dev/null ||
+            { echo "A versão $VERSAO não existe no GHCR"; exit 1; }
+
+      - name: Deploy da versão escolhida
+        run: scripts/deploy.sh "${{ inputs.ambiente }}" "$VERSAO"

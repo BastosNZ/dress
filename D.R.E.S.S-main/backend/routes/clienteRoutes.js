@@ -1,49 +1,31 @@
 const express = require('express');
 const router = express.Router();
 const clienteService = require('../services/clienteService');
-const { autenticar } = require('../middleware/auth');
+const { autenticar, autorizar } = require('../middleware/auth');
+const asyncHandler = require('../middleware/asyncHandler');
 
 router.use(autenticar);
 
-router.get('/', async (req, res) => {
-  try {
-    res.json(await clienteService.listar());
-  } catch (err) {
-    res.status(err.status || 500).json({ erro: err.message || 'Erro interno' });
-  }
-});
+router.get('/', asyncHandler(async (req, res) => {
+  res.json(await clienteService.listar());
+}));
 
-router.get('/:id', async (req, res) => {
-  try {
-    res.json(await clienteService.buscarPorId(req.params.id));
-  } catch (err) {
-    res.status(err.status || 500).json({ erro: err.message || 'Erro interno' });
-  }
-});
+router.get('/:id', asyncHandler(async (req, res) => {
+  res.json(await clienteService.buscarPorId(req.params.id));
+}));
 
-router.post('/', async (req, res) => {
-  try {
-    res.status(201).json(await clienteService.criar(req.body));
-  } catch (err) {
-    res.status(err.status || 500).json({ erro: err.message || 'Erro interno' });
-  }
-});
+router.post('/', asyncHandler(async (req, res) => {
+  res.status(201).json(await clienteService.criar(req.body));
+}));
 
-router.put('/:id', async (req, res) => {
-  try {
-    res.json(await clienteService.atualizar(req.params.id, req.body));
-  } catch (err) {
-    res.status(err.status || 500).json({ erro: err.message || 'Erro interno' });
-  }
-});
+router.put('/:id', asyncHandler(async (req, res) => {
+  res.json(await clienteService.atualizar(req.params.id, req.body));
+}));
 
-router.delete('/:id', async (req, res) => {
-  try {
-    await clienteService.remover(req.params.id);
-    res.json({ mensagem: 'Cliente removido com sucesso' });
-  } catch (err) {
-    res.status(err.status || 500).json({ erro: err.message || 'Erro interno' });
-  }
-});
+// Igual produto: só ADMIN apaga
+router.delete('/:id', autorizar('ADMIN'), asyncHandler(async (req, res) => {
+  await clienteService.remover(req.params.id);
+  res.json({ mensagem: 'Cliente removido com sucesso' });
+}));
 
 module.exports = router;

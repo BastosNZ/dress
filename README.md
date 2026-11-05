@@ -1,5 +1,7 @@
 # D.R.E.S.S. - Digital Retail Enterprise Sales System
 
+[![CD](https://github.com/BastosNZ/dress/actions/workflows/cd.yml/badge.svg)](https://github.com/BastosNZ/dress/actions/workflows/cd.yml)
+
 Sistema web desenvolvido para gerenciamento de uma loja de roupas, permitindo o controle de clientes, produtos, estoque e vendas através de uma API REST integrada a uma interface gráfica.
 
 Projeto desenvolvido para a disciplina de **Desenvolvimento Web**.
@@ -53,6 +55,12 @@ O D.R.E.S.S. tem como objetivo facilitar o gerenciamento de uma loja de roupas, 
 - Requests
 - Pandas
 
+## DevOps
+
+- Docker e Docker Compose
+- GitHub Actions (CI/CD)
+- GitHub Container Registry (GHCR)
+
 ## Banco de Dados
 
 - MySQL
@@ -89,6 +97,29 @@ D.R.E.S.S-main
 
 ---
 
+# Rodando com Docker (jeito mais rápido)
+
+Precisa só do Docker instalado.
+
+```bash
+git clone https://github.com/BastosNZ/dress.git
+cd dress
+cp .env.example .env      # preencha as senhas
+docker compose up -d --build
+```
+
+- Interface: http://localhost:8501
+- API: http://localhost:3000/health
+- Login: `ADMIN_USERNAME` / `ADMIN_PASSWORD` do seu `.env`
+
+O pipeline de CI/CD, os segredos, o versionamento e o rollback estão explicados
+em [docs/DEVOPS.md](docs/DEVOPS.md). As mudanças de cada versão ficam no
+[CHANGELOG.md](CHANGELOG.md).
+
+---
+
+# Rodando sem Docker
+
 # Pré-requisitos
 
 Antes de executar o projeto, instale:
@@ -124,8 +155,8 @@ CREATE DATABASE dress;
 
 As tabelas são criadas automaticamente na primeira execução do backend: o
 `server.js` chama `initDatabase()`, que roda os `CREATE TABLE IF NOT EXISTS`,
-insere os dados iniciais de clientes e produtos e cria o usuário administrador
-padrão.
+insere os dados iniciais de clientes e produtos e cria o primeiro administrador
+a partir do `.env` (veja abaixo).
 
 Para criar o esquema manualmente, importe `database/D.R.E.S.S.sql` e,
 opcionalmente, `database/seed.sql`.
@@ -154,12 +185,23 @@ Exemplo:
 PORT=3000
 
 DB_HOST=localhost
+DB_PORT=3306
 DB_USER=root
 DB_PASSWORD=sua_senha
 DB_NAME=dress
 
-JWT_SECRET=sua_chave_secreta
+JWT_SECRET=uma_frase_longa_e_aleatoria
+JWT_EXPIRES_IN=1h
+
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=sua_senha_de_admin
 ```
+
+`JWT_SECRET` é obrigatório: sem ele o servidor não sobe.
+
+Na primeira execução, se o banco ainda não tiver nenhum administrador, o backend
+cria um com `ADMIN_USERNAME` e `ADMIN_PASSWORD`. É com esse usuário que se faz o
+primeiro login e se cadastram os outros usuários.
 
 Execute o servidor:
 
@@ -209,8 +251,8 @@ A interface será aberta automaticamente no navegador.
 
 # Testes
 
-O backend tem testes de unidade dos serviços escritos com Jest. Os repositórios
-são mockados, então a suíte roda sem banco de dados.
+O backend tem testes escritos com Jest. Os repositórios são mockados, então a
+suíte roda sem banco de dados.
 
 Na pasta `backend`:
 
@@ -218,8 +260,9 @@ Na pasta `backend`:
 npm test
 ```
 
-São 3 suítes e 14 testes, cobrindo as regras de negócio de clientes, produtos e
-vendas.
+Além dos testes de unidade dos serviços, há testes de integração com
+`supertest` que sobem a API e testam as rotas (permissões, erros, validações),
+também sem banco.
 
 ---
 
@@ -247,7 +290,16 @@ As rotas marcadas com **token** exigem o cabeçalho
 | Método | Endpoint | Autenticação |
 |---|---|---|
 | POST | `/auth/login` | não |
-| POST | `/auth/registrar` | não |
+| GET | `/auth/me` | token |
+| PUT | `/auth/senha` | token |
+
+## Usuários — `/usuarios`
+
+| Método | Endpoint | Autenticação |
+|---|---|---|
+| GET | `/usuarios` | token + perfil `ADMIN` |
+| POST | `/usuarios` | token + perfil `ADMIN` |
+| PATCH | `/usuarios/:id/ativo` | token + perfil `ADMIN` |
 
 ## Clientes — `/clientes`
 
@@ -257,7 +309,7 @@ As rotas marcadas com **token** exigem o cabeçalho
 | GET | `/clientes/:id` | token |
 | POST | `/clientes` | token |
 | PUT | `/clientes/:id` | token |
-| DELETE | `/clientes/:id` | token |
+| DELETE | `/clientes/:id` | token + perfil `ADMIN` |
 
 ## Produtos — `/produtos`
 
@@ -282,7 +334,24 @@ As rotas marcadas com **token** exigem o cabeçalho
 | Método | Endpoint | Autenticação |
 |---|---|---|
 | GET | `/relatorios/periodo` | token |
+| GET | `/relatorios/resumo` | token |
 | GET | `/relatorios/cliente/:id` | token |
+
+---
+
+# Permissões
+
+| Ação | ADMIN | FUNCIONARIO |
+|---|---|---|
+| Ver, cadastrar e editar clientes e produtos | sim | sim |
+| Excluir clientes e produtos | sim | não |
+| Registrar e consultar vendas | sim | sim |
+| Ver relatórios | sim | sim |
+| Cadastrar, listar e desativar usuários | sim | não |
+| Trocar a própria senha | sim | sim |
+
+Um usuário desativado perde o acesso na hora, mesmo que ainda tenha um token
+válido. O sistema não deixa desativar o último administrador ativo.
 
 ---
 
@@ -291,8 +360,18 @@ As rotas marcadas com **token** exigem o cabeçalho
 - O usuário deve estar autenticado para acessar rotas protegidas.
 - Não é permitido registrar vendas sem estoque disponível.
 - O estoque é atualizado automaticamente após uma venda.
-- Os campos obrigatórios são validados antes do processamento.
-- Os dados enviados para a API são verificados antes de serem gravados no banco.
+- A quantidade de cada item precisa ser um número inteiro maior que zero; o
+  mesmo produto repetido na venda é somado numa linha só.
+- O valor total da venda é a soma dos itens gravados.
+- Produto que já foi vendido e cliente com vendas não podem ser excluídos.
+- CPF é validado pelos dígitos verificadores e salvo só com os números (pode
+  ser enviado com ou sem máscara).
+- Preço não pode ser negativo; estoque e estoque mínimo são inteiros ≥ 0.
+- Relatórios recebem datas no formato `AAAA-MM-DD` e incluem os dois dias do
+  período (`inicio=2026-11-05&fim=2026-11-05` traz as vendas do dia todo).
+- `GET /relatorios/resumo` devolve número de vendas, faturamento e ticket médio
+  do período.
+- Erros sempre voltam em JSON no formato `{ "erro": "mensagem" }`.
 
 ---
 

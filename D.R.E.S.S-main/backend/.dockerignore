@@ -1,0 +1,10 @@
+# O que NÃO vai pra dentro da imagem
+node_modules
+npm-debug.log*
+coverage
+tests
+.env
+.env.*
+!.env.example
+Dockerfile
+.dockerignore
