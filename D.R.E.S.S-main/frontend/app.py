@@ -301,7 +301,7 @@ if not st.session_state.token:
         username = st.text_input("Usuário", placeholder="Digite seu usuário")
         senha = st.text_input("Senha", type="password", placeholder="Digite sua senha")
 
-        entrar = st.button("Entrar no sistema", use_container_width=True)
+        entrar = st.button("Entrar no sistema", width="stretch")
         st.caption("Acesso restrito a usuários cadastrados.")
 
         if entrar:
@@ -340,7 +340,7 @@ st.sidebar.caption("Ambiente")
 st.sidebar.write("API Express")
 st.sidebar.write("Banco MySQL")
 
-if st.sidebar.button("Sair", use_container_width=True):
+if st.sidebar.button("Sair", width="stretch"):
     st.session_state.token = None
     st.rerun()
 
@@ -389,7 +389,7 @@ if pagina == "Dashboard":
             if "Preço" in df.columns:
                 df["Preço"] = df["Preço"].apply(money)
 
-            st.dataframe(df, use_container_width=True, hide_index=True)
+            st.dataframe(df, width="stretch", hide_index=True)
         else:
             st.info("Nenhum produto cadastrado.")
 
@@ -410,7 +410,7 @@ if pagina == "Dashboard":
 
         if baixos:
             st.warning("Existem produtos abaixo do estoque mínimo.")
-            st.dataframe(pd.DataFrame(baixos), use_container_width=True, hide_index=True)
+            st.dataframe(pd.DataFrame(baixos), width="stretch", hide_index=True)
         else:
             st.success("Todos os produtos estão acima do estoque mínimo.")
 
@@ -473,7 +473,7 @@ elif pagina == "Produtos":
 
         descricao = st.text_area("Descrição")
 
-        if st.button("Salvar produto", use_container_width=True):
+        if st.button("Salvar produto", width="stretch"):
             api_post("/produtos", {
                 "nome": nome,
                 "descricao": descricao,
@@ -505,7 +505,7 @@ elif pagina == "Produtos":
             colA, colB = st.columns(2)
 
             with colA:
-                if st.button("Atualizar produto", use_container_width=True):
+                if st.button("Atualizar produto", width="stretch"):
                     api_put(f"/produtos/{produto.get('id')}", {
                         "nome": nome,
                         "descricao": descricao,
@@ -515,7 +515,7 @@ elif pagina == "Produtos":
                     })
 
             with colB:
-                if st.button("Excluir produto", use_container_width=True):
+                if st.button("Excluir produto", width="stretch"):
                     api_delete(f"/produtos/{produto.get('id')}")
         else:
             st.info("Nenhum produto cadastrado.")
@@ -538,7 +538,7 @@ elif pagina == "Clientes":
             if busca and "nome" in df.columns:
                 df = df[df["nome"].str.contains(busca, case=False, na=False)]
 
-            st.dataframe(df, use_container_width=True, hide_index=True)
+            st.dataframe(df, width="stretch", hide_index=True)
         else:
             st.info("Nenhum cliente cadastrado.")
 
@@ -557,7 +557,7 @@ elif pagina == "Clientes":
 
         endereco = st.text_input("Endereço")
 
-        if st.button("Salvar cliente", use_container_width=True):
+        if st.button("Salvar cliente", width="stretch"):
             api_post("/clientes", {
                 "nome": nome,
                 "cpf": cpf,
@@ -589,7 +589,7 @@ elif pagina == "Clientes":
             colA, colB = st.columns(2)
 
             with colA:
-                if st.button("Atualizar cliente", use_container_width=True):
+                if st.button("Atualizar cliente", width="stretch"):
                     api_put(f"/clientes/{cliente.get('id')}", {
                         "nome": nome,
                         "cpf": cpf,
@@ -599,7 +599,7 @@ elif pagina == "Clientes":
                     })
 
             with colB:
-                if st.button("Excluir cliente", use_container_width=True):
+                if st.button("Excluir cliente", width="stretch"):
                     api_delete(f"/clientes/{cliente.get('id')}")
         else:
             st.info("Nenhum cliente cadastrado.")
@@ -657,7 +657,7 @@ elif pagina == "Vendas":
                 })
 
             df = pd.DataFrame(linhas)
-            st.dataframe(df, use_container_width=True, hide_index=True)
+            st.dataframe(df, width="stretch", hide_index=True)
         else:
             st.info("Nenhuma venda registrada.")
 
@@ -687,7 +687,7 @@ elif pagina == "Vendas":
 
             st.info(f"Total previsto da venda: {money(total_previsto)}")
 
-            if st.button("Registrar venda", use_container_width=True):
+            if st.button("Registrar venda", width="stretch"):
                 cliente = clientes_opcoes[cliente_key]
 
                 api_post("/vendas", {
@@ -714,12 +714,12 @@ elif pagina == "Relatórios":
     with col2:
         fim = st.date_input("Data final", value=date.today())
 
-    if st.button("Gerar relatório", use_container_width=True):
+    if st.button("Gerar relatório", width="stretch"):
         relatorio = api_get(f"/relatorios/periodo?inicio={inicio}&fim={fim}")
 
         if relatorio:
             df = pd.DataFrame(relatorio)
-            st.dataframe(df, use_container_width=True, hide_index=True)
+            st.dataframe(df, width="stretch", hide_index=True)
 
             numeric_cols = df.select_dtypes(include="number").columns
             if len(numeric_cols) > 0:
