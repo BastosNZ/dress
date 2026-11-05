@@ -36,24 +36,32 @@ function lerTexto(valor, campo, { obrigatorio = false, max = 255 } = {}) {
 }
 
 function lerPreco(valor) {
-  const preco = paraNumero(valor);
-  if (!Number.isFinite(preco)) {
+  const numero = paraNumero(valor);
+  if (!Number.isFinite(numero)) {
     throw new AppError(400, 'Preço deve ser um número');
   }
-  if (preco < 0) {
+  if (numero < 0) {
     throw new AppError(400, 'Preço não pode ser negativo');
   }
+  // arredonda antes de comparar: 99999999.995 vira 100000000
+  const preco = Math.round(numero * 100) / 100;
   // DECIMAL(10,2) aguenta até 99.999.999,99
   if (preco >= 100000000) {
     throw new AppError(400, 'Preço muito alto');
   }
-  return Math.round(preco * 100) / 100;
+  return preco;
 }
+
+// maior valor de uma coluna INT no MySQL
+const MAIOR_INT = 2147483647;
 
 function lerInteiroNaoNegativo(valor, campo) {
   const numero = paraNumero(valor);
   if (!Number.isInteger(numero) || numero < 0) {
     throw new AppError(400, `${campo} deve ser um número inteiro maior ou igual a zero`);
+  }
+  if (numero > MAIOR_INT) {
+    throw new AppError(400, `${campo} é grande demais`);
   }
   return numero;
 }

@@ -118,8 +118,27 @@ describe('segurança e permissões', () => {
         .send({ ativo: false });
 
       expect(res.status).toBe(200);
-      expect(usuarioRepository.setAtivo).toHaveBeenCalledWith(String(funcionario.id), false);
+      expect(usuarioRepository.setAtivo).toHaveBeenCalledWith(funcionario.id, false);
     });
+  });
+
+  test('ID de usuário inválido (1x) é recusado antes de ir pro banco', async () => {
+    const res = await request(app)
+      .patch('/usuarios/1x/ativo')
+      .set(comoAdmin)
+      .send({ ativo: false });
+
+    expect(res.status).toBe(400);
+    expect(usuarioRepository.setAtivo).not.toHaveBeenCalled();
+  });
+
+  test('login com senha que não é texto devolve 400, não 500', async () => {
+    const numero = await request(app).post('/auth/login').send({ username: 'admin', senha: 123456 });
+    const lista = await request(app).post('/auth/login').send({ username: ['admin', 'x'], senha: 'a' });
+
+    expect(numero.status).toBe(400);
+    expect(lista.status).toBe(400);
+    expect(usuarioRepository.findByUsername).not.toHaveBeenCalled();
   });
 
   describe('permissões por perfil', () => {

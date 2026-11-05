@@ -1,4 +1,4 @@
-const { cpfValido, lerData, paraNumero } = require('../utils/validacao');
+const { cpfValido, lerData, paraNumero, lerPreco, lerInteiroNaoNegativo } = require('../utils/validacao');
 
 describe('validacao', () => {
   test('cpfValido confere os dígitos verificadores', () => {
@@ -21,5 +21,11 @@ describe('validacao', () => {
     expect(paraNumero(' ')).toBeNaN();
     expect(paraNumero(true)).toBeNaN();
     expect(paraNumero(null)).toBeNaN();
+  });
+
+  test('preço e estoque respeitam o limite das colunas do banco', () => {
+    expect(() => lerPreco(99999999.995)).toThrow('Preço muito alto');
+    expect(lerPreco(99999999.99)).toBe(99999999.99);
+    expect(() => lerInteiroNaoNegativo(3000000000, 'Estoque')).toThrow('grande demais');
   });
 });

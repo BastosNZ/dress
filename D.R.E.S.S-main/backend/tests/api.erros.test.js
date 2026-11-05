@@ -43,6 +43,15 @@ describe('tratamento de erros da API', () => {
     expect(res.body.erro).toBe('JSON inválido no corpo da requisição');
   });
 
+  test('corpo grande demais devolve 413, não 500', async () => {
+    const res = await request(app)
+      .post('/clientes')
+      .set(auth)
+      .send({ nome: 'x'.repeat(200 * 1024) });
+
+    expect(res.status).toBe(413);
+  });
+
   test('rota que não existe devolve 404', async () => {
     const res = await request(app).get('/nao-existe');
     expect(res.status).toBe(404);
