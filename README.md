@@ -104,7 +104,7 @@ Precisa só do Docker instalado.
 ```bash
 git clone https://github.com/BastosNZ/dress.git
 cd dress
-cp .env.example .env      # troque as senhas
+cp .env.example .env      # preencha as senhas
 docker compose up -d --build
 ```
 

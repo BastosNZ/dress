@@ -62,7 +62,7 @@ O smoke test (`scripts/smoke-test.sh`) confere:
 ## Rodar local com Docker
 
 ```bash
-cp .env.example .env        # troque as senhas
+cp .env.example .env        # preencha as senhas
 docker compose up -d --build
 ```
 
