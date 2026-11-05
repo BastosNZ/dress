@@ -60,22 +60,31 @@ async function createTables() {
   `);
 }
 
+// Cria o primeiro ADMIN só se não existir nenhum.
+// Usuário e senha vêm do .env pra não ter senha fixa no código.
 async function ensureAdminUser() {
-  const [usuarios] = await db.query(
-    'SELECT id FROM usuarios WHERE username = ? LIMIT 1',
-    ['admin']
+  const [admins] = await db.query(
+    "SELECT id FROM usuarios WHERE perfil = 'ADMIN' LIMIT 1"
   );
 
-  if (usuarios.length === 0) {
-    const senhaHash = await bcrypt.hash('123456', 10);
+  if (admins.length > 0) return;
 
-    await db.query(
-      'INSERT INTO usuarios (username, senha, perfil, is_active) VALUES (?, ?, ?, ?)',
-      ['admin', senhaHash, 'ADMIN', true]
+  const username = process.env.ADMIN_USERNAME || 'admin';
+  const senha = process.env.ADMIN_PASSWORD;
+
+  if (!senha || senha.length < 6) {
+    throw new Error(
+      'Nenhum administrador cadastrado. Defina ADMIN_PASSWORD (mínimo 6 caracteres) no .env para criar o primeiro.'
     );
-
-    console.log('Usuário admin criado.');
   }
+
+  const senhaHash = await bcrypt.hash(senha, 10);
+  await db.query(
+    'INSERT INTO usuarios (username, senha, perfil, is_active) VALUES (?, ?, ?, ?)',
+    [username, senhaHash, 'ADMIN', true]
+  );
+
+  console.log(`Usuário administrador "${username}" criado.`);
 }
 
 async function seedClientes() {

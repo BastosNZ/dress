@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const clienteService = require('../services/clienteService');
-const { autenticar } = require('../middleware/auth');
+const { autenticar, autorizar } = require('../middleware/auth');
 const asyncHandler = require('../middleware/asyncHandler');
 
 router.use(autenticar);
@@ -22,7 +22,8 @@ router.put('/:id', asyncHandler(async (req, res) => {
   res.json(await clienteService.atualizar(req.params.id, req.body));
 }));
 
-router.delete('/:id', asyncHandler(async (req, res) => {
+// Igual produto: só ADMIN apaga
+router.delete('/:id', autorizar('ADMIN'), asyncHandler(async (req, res) => {
   await clienteService.remover(req.params.id);
   res.json({ mensagem: 'Cliente removido com sucesso' });
 }));

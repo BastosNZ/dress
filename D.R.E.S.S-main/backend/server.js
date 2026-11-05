@@ -6,6 +6,7 @@ const initDatabase = require('./config/initDatabase');
 const errorHandler = require('./middleware/errorHandler');
 
 const authRoutes = require('./routes/authRoutes');
+const usuarioRoutes = require('./routes/usuarioRoutes');
 const clienteRoutes = require('./routes/clienteRoutes');
 const produtoRoutes = require('./routes/produtoRoutes');
 const vendaRoutes = require('./routes/vendaRoutes');
@@ -17,6 +18,7 @@ app.use(cors());
 app.use(express.json());
 
 app.use('/auth', authRoutes);
+app.use('/usuarios', usuarioRoutes);
 app.use('/clientes', clienteRoutes);
 app.use('/produtos', produtoRoutes);
 app.use('/vendas', vendaRoutes);
@@ -31,6 +33,11 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 3000;
 if (require.main === module) {
+  if (!process.env.JWT_SECRET) {
+    console.error('Defina JWT_SECRET no arquivo .env (veja o .env.example).');
+    process.exit(1);
+  }
+
   initDatabase()
     .then(() => {
       app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
