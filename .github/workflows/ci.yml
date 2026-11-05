@@ -36,6 +36,10 @@ jobs:
       - name: Rodar testes (unidade + integração)
         run: npm test
 
+      # Falha o CI se alguma dependência de produção tiver vulnerabilidade alta ou crítica
+      - name: Auditoria de dependências
+        run: npm audit --omit=dev --audit-level=high
+
   frontend:
     name: Frontend - checagem
     runs-on: ubuntu-latest
