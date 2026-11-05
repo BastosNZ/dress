@@ -1,13 +1,25 @@
 const db = require('../config/database');
 const AppError = require('../utils/AppError');
 
+// Já traz o nome do cliente e de quem vendeu, pro frontend não precisar cruzar
+const SELECT_VENDAS = `
+  SELECT v.*, c.nome AS cliente_nome, u.username AS vendedor
+  FROM vendas v
+  JOIN clientes c ON c.id = v.id_cliente
+  JOIN usuarios u ON u.id = v.id_usuario
+`;
+
+// Período sempre inclusivo nos dois dias: "fim" vira "antes do dia seguinte".
+// Com BETWEEN '2026-11-05' AND '2026-11-05' só entrava venda feita às 00:00:00.
+const FILTRO_PERIODO = 'v.data >= ? AND v.data < DATE_ADD(?, INTERVAL 1 DAY)';
+
 async function findAll() {
-  const [rows] = await db.query('SELECT * FROM vendas ORDER BY data DESC');
+  const [rows] = await db.query(`${SELECT_VENDAS} ORDER BY v.data DESC`);
   return rows;
 }
 
 async function findById(id) {
-  const [rows] = await db.query('SELECT * FROM vendas WHERE id = ?', [id]);
+  const [rows] = await db.query(`${SELECT_VENDAS} WHERE v.id = ?`, [id]);
   const venda = rows[0];
   if (!venda) return null;
 
@@ -24,14 +36,28 @@ async function findById(id) {
 
 async function findByPeriodo(inicio, fim) {
   const [rows] = await db.query(
-    'SELECT * FROM vendas WHERE data BETWEEN ? AND ? ORDER BY data',
+    `${SELECT_VENDAS} WHERE ${FILTRO_PERIODO} ORDER BY v.data`,
     [inicio, fim]
   );
   return rows;
 }
 
+async function resumoPorPeriodo(inicio, fim) {
+  const [rows] = await db.query(
+    `SELECT COUNT(*) AS total_vendas, COALESCE(SUM(v.valor_total), 0) AS faturamento
+     FROM vendas v
+     WHERE ${FILTRO_PERIODO}`,
+    [inicio, fim]
+  );
+  // o mysql2 devolve SUM de DECIMAL como texto
+  return {
+    total_vendas: Number(rows[0].total_vendas),
+    faturamento: Number(rows[0].faturamento),
+  };
+}
+
 async function findByCliente(idCliente) {
-  const [rows] = await db.query('SELECT * FROM vendas WHERE id_cliente = ? ORDER BY data DESC', [idCliente]);
+  const [rows] = await db.query(`${SELECT_VENDAS} WHERE v.id_cliente = ? ORDER BY v.data DESC`, [idCliente]);
   return rows;
 }
 
@@ -46,9 +72,9 @@ async function create({ id_usuario, id_cliente, itens }) {
     );
     const idVenda = vendaResult.insertId;
 
-    let valorTotal = 0;
-
     for (const item of itens) {
+      // FOR UPDATE trava a linha do produto até o commit, então duas vendas
+      // ao mesmo tempo não conseguem vender a mesma última peça
       const [produtoRows] = await conn.query('SELECT * FROM produtos WHERE id = ? FOR UPDATE', [item.id_produto]);
       const produto = produtoRows[0];
 
@@ -58,9 +84,6 @@ async function create({ id_usuario, id_cliente, itens }) {
       if (produto.quantidade_estoque < item.quantidade) {
         throw new AppError(400, `Estoque insuficiente para o produto "${produto.nome}"`);
       }
-
-      const subtotal = item.quantidade * Number(produto.preco);
-      valorTotal += subtotal;
 
       await conn.query(
         'INSERT INTO itens_venda (id_venda, id_produto, quantidade, preco_unitario) VALUES (?, ?, ?, ?)',
@@ -73,7 +96,14 @@ async function create({ id_usuario, id_cliente, itens }) {
       );
     }
 
-    await conn.query('UPDATE vendas SET valor_total = ? WHERE id = ?', [valorTotal, idVenda]);
+    // O total sai da soma dos itens que foram gravados de verdade.
+    // Antes era somado no JavaScript e podia ficar diferente dos itens.
+    await conn.query(
+      `UPDATE vendas
+       SET valor_total = (SELECT SUM(subtotal) FROM itens_venda WHERE id_venda = ?)
+       WHERE id = ?`,
+      [idVenda, idVenda]
+    );
 
     await conn.commit();
     conn.release();
@@ -85,4 +115,4 @@ async function create({ id_usuario, id_cliente, itens }) {
   }
 }
 
-module.exports = { findAll, findById, findByPeriodo, findByCliente, create };
+module.exports = { findAll, findById, findByPeriodo, resumoPorPeriodo, findByCliente, create };
