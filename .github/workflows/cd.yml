@@ -1,0 +1,169 @@
+# CD: publica as imagens no GHCR e faz o deploy.
+#
+#   push na main       -> imagens sha-<commit> -> deploy automático em HOMOLOGAÇÃO
+#   tag vX.Y.Z         -> imagens X.Y.Z, X.Y e latest -> deploy em PRODUÇÃO + release
+#
+# Os ambientes são simulados: o docker compose sobe a aplicação dentro do runner
+# do GitHub Actions e o smoke test confere se ela funciona. Num servidor de
+# verdade seria o mesmo scripts/deploy.sh rodando lá (via SSH, por exemplo).
+#
+# Segredos (Settings > Environments > homologacao / producao > Secrets):
+#   DB_PASSWORD, DB_ROOT_PASSWORD, JWT_SECRET, ADMIN_PASSWORD
+# O login no GHCR usa o GITHUB_TOKEN automático, não precisa criar nada.
+name: CD
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*.*.*"]
+
+# Não deixa dois deploys do mesmo ref rodarem ao mesmo tempo
+concurrency:
+  group: cd-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: CI
+    uses: ./.github/workflows/ci.yml
+
+  versao:
+    name: Definir versão
+    runs-on: ubuntu-latest
+    needs: ci
+    outputs:
+      versao: ${{ steps.v.outputs.versao }}
+      owner: ${{ steps.v.outputs.owner }}
+    steps:
+      - id: v
+        run: |
+          # tag v1.2.3 vira versão 1.2.3; push na main vira sha-abc1234
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "versao=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "versao=sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          fi
+          # o GHCR só aceita nome em minúsculo (BastosNZ -> bastosnz)
+          echo "owner=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+
+  publicar:
+    name: Publicar imagem (${{ matrix.servico }})
+    runs-on: ubuntu-latest
+    needs: versao
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        servico: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Login no GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tags da imagem
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ needs.versao.outputs.owner }}/dress-${{ matrix.servico }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix=sha-,format=short
+            type=raw,value=main,enable={{is_default_branch}}
+
+      - name: Build e push
+        uses: docker/build-push-action@v6
+        with:
+          context: D.R.E.S.S-main/${{ matrix.servico }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: APP_VERSION=${{ needs.versao.outputs.versao }}
+          cache-from: type=gha,scope=${{ matrix.servico }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.servico }}
+
+  homologacao:
+    name: Deploy em homologação
+    runs-on: ubuntu-latest
+    needs: [versao, publicar]
+    if: github.ref == 'refs/heads/main'
+    environment: homologacao
+    permissions:
+      contents: read
+      packages: read
+    env:
+      REGISTRY: ghcr.io/${{ needs.versao.outputs.owner }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      DB_ROOT_PASSWORD: ${{ secrets.DB_ROOT_PASSWORD }}
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login no GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Deploy
+        run: scripts/deploy.sh homologacao "${{ needs.versao.outputs.versao }}"
+
+  producao:
+    name: Deploy em produção
+    runs-on: ubuntu-latest
+    needs: [versao, publicar]
+    if: startsWith(github.ref, 'refs/tags/v')
+    # Em Settings > Environments > producao dá pra exigir aprovação manual
+    environment: producao
+    permissions:
+      contents: write
+      packages: read
+    env:
+      REGISTRY: ghcr.io/${{ needs.versao.outputs.owner }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      DB_ROOT_PASSWORD: ${{ secrets.DB_ROOT_PASSWORD }}
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # precisa das tags antigas pra achar a versão anterior
+
+      - name: Achar a versão anterior (pro rollback)
+        run: |
+          anterior=$(git tag --list 'v*.*.*' --sort=-v:refname | grep -vx "$GITHUB_REF_NAME" | head -n1 || true)
+          echo "VERSAO_ANTERIOR=${anterior#v}" >> "$GITHUB_ENV"
+          echo "Versão anterior: ${anterior:-nenhuma}"
+
+      - name: Login no GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Se a versão nova falhar no smoke test, o script volta pra anterior e o job fica vermelho
+      - name: Deploy (com rollback automático)
+        run: scripts/deploy.sh producao "${{ needs.versao.outputs.versao }}"
+
+      - name: Criar release no GitHub
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes \
+            --notes "Imagens: ghcr.io/${{ needs.versao.outputs.owner }}/dress-backend:${{ needs.versao.outputs.versao }} e dress-frontend:${{ needs.versao.outputs.versao }}"

@@ -25,3 +25,6 @@ coverage/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Versão no ar em cada ambiente (gerado pelo scripts/deploy.sh)
+.versao-*
