@@ -100,8 +100,10 @@ Nenhuma senha fica no código. O que mudou para isso:
   algum segredo, o compose para com erro em vez de subir com senha vazia;
 - o `.env` está no `.gitignore`; no repositório só existe o `.env.example`.
 
-No pipeline os valores ficam nos **Environments** do GitHub
-(Settings → Environments), um conjunto para cada ambiente:
+No pipeline os valores ficam nos **Secrets do GitHub Actions**
+(Settings → Secrets and variables → Actions). Os jobs de deploy rodam nos
+Environments `homologacao` e `producao`, então dá para ter um valor diferente
+por ambiente cadastrando o secret dentro do Environment (Settings → Environments).
 
 | Secret | Para que serve |
 |---|---|
@@ -116,9 +118,10 @@ de registry guardada. O GitHub esconde (`***`) qualquer secret que aparecer no l
 Para criar pelo terminal (cada comando pede o valor):
 
 ```bash
-gh secret set JWT_SECRET --env producao
-gh secret set ADMIN_PASSWORD --env producao
-# ... e o mesmo para homologacao
+gh secret set JWT_SECRET
+gh secret set ADMIN_PASSWORD
+gh secret set DB_PASSWORD
+gh secret set DB_ROOT_PASSWORD
 ```
 
 ---

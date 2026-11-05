@@ -7,8 +7,9 @@
 # do GitHub Actions e o smoke test confere se ela funciona. Num servidor de
 # verdade seria o mesmo scripts/deploy.sh rodando lá (via SSH, por exemplo).
 #
-# Segredos (Settings > Environments > homologacao / producao > Secrets):
+# Segredos (Settings > Secrets and variables > Actions):
 #   DB_PASSWORD, DB_ROOT_PASSWORD, JWT_SECRET, ADMIN_PASSWORD
+# (dá pra ter valores diferentes por ambiente em Settings > Environments)
 # O login no GHCR usa o GITHUB_TOKEN automático, não precisa criar nada.
 name: CD
 
